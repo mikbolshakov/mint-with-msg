@@ -1,17 +1,17 @@
 import "./App.css";
 import React, { useState } from "react";
 import { ethers } from "ethers";
-import contractAbi from "./ABI/abi.json";
+import contractAbi from "./ABI/mumbaiGameControllerAbi.json";
 import { joinSignature } from "ethers/lib/utils";
 import { TypedDataUtils } from "ethers-eip712";
 import { Buffer } from "buffer";
 
 function App() {
     const [metaMaskConnected, setMetaMaskConnected] = useState(false);
-    const contractAddress = process.env.REACT_APP_CONTRACT_ADDRESS;
+    const contractAddr = process.env.REACT_APP_CONTRACT_ADDRESS;
     const provider = new ethers.providers.Web3Provider(window.ethereum);
     const signer = provider.getSigner();
-    const contract = new ethers.Contract(contractAddress, contractAbi, signer);
+    const contract = new ethers.Contract(contractAddr, contractAbi, signer);
 
     const maintainer = new ethers.Wallet(
         process.env.REACT_APP_MAINTAINER_PRIV_KEY,
@@ -25,11 +25,11 @@ function App() {
                     method: "eth_chainId",
                 });
 
-                if (currentChainId !== "0xE708") {
+                if (currentChainId !== "0x13881") {
                     try {
                         await window.ethereum.request({
                             method: "wallet_switchEthereumChain",
-                            params: [{ chainId: "0xE708" }],
+                            params: [{ chainId: "0x13881" }],
                         });
                     } catch (switchError) {
                         if (switchError.code === 4902) {
@@ -38,18 +38,18 @@ function App() {
                                     method: "wallet_addEthereumChain",
                                     params: [
                                         {
-                                            chainId: "0xE708",
-                                            chainName: "Linea Mainnet",
+                                            chainId: "0x13881",
+                                            chainName: "Mumbai Testnet",
                                             rpcUrls: [
-                                                "https://linea-mainnet.infura.io/v3/",
+                                                "https://rpc-mumbai.maticvigil.com/",
                                             ],
                                             nativeCurrency: {
-                                                name: "ETH",
-                                                symbol: "ETH",
+                                                name: "MATIC",
+                                                symbol: "MATIC",
                                                 decimals: 18,
                                             },
                                             blockExplorerUrls: [
-                                                "https://lineascan.build",
+                                                "https://mumbai.polygonscan.com/",
                                             ],
                                         },
                                     ],
@@ -76,7 +76,7 @@ function App() {
 
     class BackendMock {
         /// The EIP-712 domain name used for computing the domain separator.
-        DOMAIN_NAME = "CityBuilder";
+        DOMAIN_NAME = "SatoshiQuest WebApp";
         /// The EIP-712 domain version used for computing the domain separator.
         DOMAIN_VERSION = "v1";
 
@@ -97,12 +97,11 @@ function App() {
                 this.maintainer._signingKey().signDigest(message)
             );
 
-            const bufferSignature = Buffer.from(signature.slice(2), "hex");
-
-            return bufferSignature;
+            return Buffer.from(signature.slice(2), "hex");
+            // return bufferSignature;
         }
 
-        constructMint({ nftOwner, tokenUri }) {
+        constructMint({ primaryCardId, secondaryCardId, newDna, newCID }) {
             const data = {
                 domain: {
                     chainId: this.chainId,
@@ -118,14 +117,18 @@ function App() {
                         { name: "verifyingContract", type: "address" },
                     ],
                     BuildingParams: [
-                        { name: "nftOwner", type: "address" },
-                        { name: "tokenUri", type: "string" },
+                        { name: "primaryCardId", type: "uint256" },
+                        { name: "secondaryCardId", type: "uint256" },
+                        { name: "newDna", type: "uint256" },
+                        { name: "newCID", type: "string" },
                     ],
                 },
                 primaryType: "BuildingParams",
                 message: {
-                    nftOwner: nftOwner,
-                    tokenUri: tokenUri,
+                    primaryCardId: primaryCardId,
+                    secondaryCardId: secondaryCardId,
+                    newDna: newDna,
+                    newCID: newCID,
                 },
             };
             const digest = TypedDataUtils.encodeDigest(data);
@@ -135,21 +138,22 @@ function App() {
     }
 
     async function mintHandler() {
-        let backend = new BackendMock(59144, contract.address, maintainer);
+        let backend = new BackendMock(80001, contractAddr, maintainer);
 
         let build = {
-            nftOwner: "0x2c84C3D16AaAC1157919D9210CBC7b8797F5A91a",
-            tokenUri: "QmcznV9PX64uESDMLtL24gAtxUiaS8XFUG97JdkGo5b5sj",
+            primaryCardId: 553,
+            secondaryCardId: 575,
+            newDna: 233004859413,
+            newCID: "QmWtkoLmGK1mBYCEFSFAbEjXXqkh2ZFExjF3CxhzJpUz58",
         };
 
         let signature = backend.signMintMessage(build);
 
         try {
             const txGasPrice = await provider.getGasPrice();
-
-            let tx = await contract.safeMint(signature, build, {
+            let tx = await contract.upgradeCard(signature, build, 1, {
                 gasPrice: txGasPrice,
-                gasLimit: 2500000,
+                gasLimit: 250000,
             });
             await tx.wait();
         } catch (error) {
