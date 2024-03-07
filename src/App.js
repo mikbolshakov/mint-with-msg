@@ -90,18 +90,17 @@ function App() {
             this.maintainer = maintainer;
         }
 
-        signMintMessage(payload) {
-            const message = this.constructMint(payload);
+        signUpgradeMessage(payload) {
+            const message = this.constructUpgrade(payload);
 
             const signature = joinSignature(
                 this.maintainer._signingKey().signDigest(message)
             );
 
             return Buffer.from(signature.slice(2), "hex");
-            // return bufferSignature;
         }
 
-        constructMint({ primaryCardId, secondaryCardId, newDna, newCID }) {
+        constructUpgrade({ primaryCardId, secondaryCardId, newDna, newCID }) {
             const data = {
                 domain: {
                     chainId: this.chainId,
@@ -116,14 +115,14 @@ function App() {
                         { name: "chainId", type: "uint256" },
                         { name: "verifyingContract", type: "address" },
                     ],
-                    BuildingParams: [
+                    UpgradeParams: [
                         { name: "primaryCardId", type: "uint256" },
                         { name: "secondaryCardId", type: "uint256" },
                         { name: "newDna", type: "uint256" },
                         { name: "newCID", type: "string" },
                     ],
                 },
-                primaryType: "BuildingParams",
+                primaryType: "UpgradeParams",
                 message: {
                     primaryCardId: primaryCardId,
                     secondaryCardId: secondaryCardId,
@@ -140,18 +139,18 @@ function App() {
     async function mintHandler() {
         let backend = new BackendMock(80001, contractAddr, maintainer);
 
-        let build = {
+        let upgrade = {
             primaryCardId: 553,
             secondaryCardId: 575,
-            newDna: 233004859413,
+            newDna: 2330048513,
             newCID: "QmWtkoLmGK1mBYCEFSFAbEjXXqkh2ZFExjF3CxhzJpUz58",
         };
 
-        let signature = backend.signMintMessage(build);
+        let signature = backend.signUpgradeMessage(upgrade);
 
         try {
             const txGasPrice = await provider.getGasPrice();
-            let tx = await contract.upgradeCard(signature, build, 1, {
+            let tx = await contract.upgradeCard(signature, upgrade, 1, {
                 gasPrice: txGasPrice,
                 gasLimit: 250000,
             });
