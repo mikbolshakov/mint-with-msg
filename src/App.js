@@ -1,174 +1,120 @@
 import "./App.css";
 import React, { useState } from "react";
 import { ethers } from "ethers";
-import contractAbi from "./ABI/mumbaiGameControllerAbi.json";
 import { joinSignature } from "ethers/lib/utils";
 import { TypedDataUtils } from "ethers-eip712";
 import { Buffer } from "buffer";
 
 function App() {
-    const [metaMaskConnected, setMetaMaskConnected] = useState(false);
-    const contractAddr = process.env.REACT_APP_CONTRACT_ADDRESS;
-    const provider = new ethers.providers.Web3Provider(window.ethereum);
-    const signer = provider.getSigner();
-    const contract = new ethers.Contract(contractAddr, contractAbi, signer);
+  const contractAddr = process.env.REACT_APP_CONTRACT_ADDRESS;
+  const provider = new ethers.providers.Web3Provider(window.ethereum);
 
-    const maintainer = new ethers.Wallet(
-        process.env.REACT_APP_MAINTAINER_PRIV_KEY,
-        provider
-    );
+  const maintainer = new ethers.Wallet(
+    process.env.REACT_APP_MAINTAINER_PRIV_KEY,
+    provider
+  );
 
-    const connectMetamaskHandler = async () => {
-        if (window.ethereum) {
-            try {
-                const currentChainId = await window.ethereum.request({
-                    method: "eth_chainId",
-                });
+  class BackendMock {
+    /// The EIP-712 domain name used for computing the domain separator.
+    DOMAIN_NAME = "SatoshiQuest WebApp";
+    /// The EIP-712 domain version used for computing the domain separator.
+    DOMAIN_VERSION = "v1";
 
-                if (currentChainId !== "0x13881") {
-                    try {
-                        await window.ethereum.request({
-                            method: "wallet_switchEthereumChain",
-                            params: [{ chainId: "0x13881" }],
-                        });
-                    } catch (switchError) {
-                        if (switchError.code === 4902) {
-                            try {
-                                await window.ethereum.request({
-                                    method: "wallet_addEthereumChain",
-                                    params: [
-                                        {
-                                            chainId: "0x13881",
-                                            chainName: "Mumbai Testnet",
-                                            rpcUrls: [
-                                                "https://rpc-mumbai.maticvigil.com/",
-                                            ],
-                                            nativeCurrency: {
-                                                name: "MATIC",
-                                                symbol: "MATIC",
-                                                decimals: 18,
-                                            },
-                                            blockExplorerUrls: [
-                                                "https://mumbai.polygonscan.com/",
-                                            ],
-                                        },
-                                    ],
-                                });
-                            } catch (addError) {
-                                console.log(addError);
-                                return;
-                            }
-                        } else {
-                            console.log(switchError);
-                            return;
-                        }
-                    }
-                }
+    maintainer;
+    chainId;
+    contractAddress;
 
-                setMetaMaskConnected(true);
-            } catch (error) {
-                console.log(error);
-            }
-        } else {
-            alert("Install MetaMask extension!");
-        }
+    constructor(chainId, contractAddress, maintainer) {
+      this.chainId = chainId;
+      this.contractAddress = contractAddress;
+      this.maintainer = maintainer;
+    }
+
+    signFindSatoshiMessage(payload) {
+      const message = this.constructFindSatoshi(payload);
+
+      const signature = joinSignature(
+        this.maintainer._signingKey().signDigest(message)
+      );
+      return Buffer.from(signature.slice(2), "hex");
+    }
+
+    constructFindSatoshi({
+      freakCardId,
+      geekCardId,
+      slackerCardId,
+      hackerCardId,
+      newCardsCids,
+      newCardsDnas,
+    }) {
+      const data = {
+        domain: {
+          chainId: this.chainId,
+          verifyingContract: this.contractAddress,
+          name: this.DOMAIN_NAME,
+          version: this.DOMAIN_VERSION,
+        },
+        types: {
+          EIP712Domain: [
+            { name: "name", type: "string" },
+            { name: "version", type: "string" },
+            { name: "chainId", type: "uint256" },
+            { name: "verifyingContract", type: "address" },
+          ],
+          FindSatoshiParams: [
+            { name: "freakCardId", type: "uint256" },
+            { name: "geekCardId", type: "uint256" },
+            { name: "slackerCardId", type: "uint256" },
+            { name: "hackerCardId", type: "uint256" },
+            { name: "newCardsCids", type: "string[]" },
+            { name: "newCardsDnas", type: "uint256[]" },
+          ],
+        },
+        primaryType: "FindSatoshiParams",
+        message: {
+          freakCardId: freakCardId,
+          geekCardId: geekCardId,
+          slackerCardId: slackerCardId,
+          hackerCardId: hackerCardId,
+          newCardsCids: newCardsCids,
+          newCardsDnas: newCardsDnas,
+        },
+      };
+      const digest = TypedDataUtils.encodeDigest(data);
+      const digestHex = ethers.utils.hexlify(digest);
+      return digestHex;
+    }
+  }
+
+  async function mintHandler() {
+    let backend = new BackendMock(56, contractAddr, maintainer);
+
+    let findSatoshi = {
+      freakCardId: 87,
+      geekCardId: 1097,
+      slackerCardId: 1489,
+      hackerCardId: 996,
+      newCardsCids: ["QmWtkoLmGK1mBYCEFSFAbEjXXqkh2ZFExjF3CxhzJpUz58"],
+      newCardsDnas: [3003],
     };
 
-    class BackendMock {
-        /// The EIP-712 domain name used for computing the domain separator.
-        DOMAIN_NAME = "SatoshiQuest WebApp";
-        /// The EIP-712 domain version used for computing the domain separator.
-        DOMAIN_VERSION = "v1";
+    let signature = backend.signFindSatoshiMessage(findSatoshi);
+    console.log(signature);
+    let hexString = Array.from(signature)
+      .map((byte) => {
+        return ("0" + (byte & 0xff).toString(16)).slice(-2);
+      })
+      .join("");
 
-        maintainer;
-        chainId;
-        contractAddress;
+    console.log(hexString);
 
-        constructor(chainId, contractAddress, maintainer) {
-            this.chainId = chainId;
-            this.contractAddress = contractAddress;
-            this.maintainer = maintainer;
-        }
-
-        signUpgradeMessage(payload) {
-            const message = this.constructUpgrade(payload);
-
-            const signature = joinSignature(
-                this.maintainer._signingKey().signDigest(message)
-            );
-
-            return Buffer.from(signature.slice(2), "hex");
-        }
-
-        constructUpgrade({ primaryCardId, secondaryCardId, newDna, newCID }) {
-            const data = {
-                domain: {
-                    chainId: this.chainId,
-                    verifyingContract: this.contractAddress,
-                    name: this.DOMAIN_NAME,
-                    version: this.DOMAIN_VERSION,
-                },
-                types: {
-                    EIP712Domain: [
-                        { name: "name", type: "string" },
-                        { name: "version", type: "string" },
-                        { name: "chainId", type: "uint256" },
-                        { name: "verifyingContract", type: "address" },
-                    ],
-                    UpgradeParams: [
-                        { name: "primaryCardId", type: "uint256" },
-                        { name: "secondaryCardId", type: "uint256" },
-                        { name: "newDna", type: "uint256" },
-                        { name: "newCID", type: "string" },
-                    ],
-                },
-                primaryType: "UpgradeParams",
-                message: {
-                    primaryCardId: primaryCardId,
-                    secondaryCardId: secondaryCardId,
-                    newDna: newDna,
-                    newCID: newCID,
-                },
-            };
-            const digest = TypedDataUtils.encodeDigest(data);
-            const digestHex = ethers.utils.hexlify(digest);
-            return digestHex;
-        }
+    try {
+    } catch (error) {
+      console.error("Произошла ошибка:", error.message);
     }
+  }
 
-    async function mintHandler() {
-        let backend = new BackendMock(80001, contractAddr, maintainer);
-
-        let upgrade = {
-            primaryCardId: 553,
-            secondaryCardId: 575,
-            newDna: 2330048513,
-            newCID: "QmWtkoLmGK1mBYCEFSFAbEjXXqkh2ZFExjF3CxhzJpUz58",
-        };
-
-        let signature = backend.signUpgradeMessage(upgrade);
-
-        try {
-            const txGasPrice = await provider.getGasPrice();
-            let tx = await contract.upgradeCard(signature, upgrade, 1, {
-                gasPrice: txGasPrice,
-                gasLimit: 250000,
-            });
-            await tx.wait();
-        } catch (error) {
-            console.error("Произошла ошибка:", error.message);
-        }
-    }
-
-    return (
-        <>
-            {metaMaskConnected ? (
-                <button onClick={mintHandler}>mint</button>
-            ) : (
-                <button onClick={connectMetamaskHandler}>Connect wallet</button>
-            )}
-        </>
-    );
+  return <button onClick={mintHandler}>mint</button>;
 }
 
 export default App;
