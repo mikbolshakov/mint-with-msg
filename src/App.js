@@ -1,17 +1,24 @@
 import "./App.css";
-import React, { useState } from "react";
+import React from "react";
 import { ethers } from "ethers";
 import { joinSignature } from "ethers/lib/utils";
 import { TypedDataUtils } from "ethers-eip712";
 import { Buffer } from "buffer";
+import testnetContractAbi from "./ABI/gameControllerAbi.json";
+import ConnectButton from "./wallet/ConnectButton";
 
 function App() {
   const contractAddr = process.env.REACT_APP_CONTRACT_ADDRESS;
   const provider = new ethers.providers.Web3Provider(window.ethereum);
-
+  const signer = provider.getSigner();
   const maintainer = new ethers.Wallet(
     process.env.REACT_APP_MAINTAINER_PRIV_KEY,
     provider
+  );
+  const contract = new ethers.Contract(
+    contractAddr,
+    testnetContractAbi,
+    signer
   );
 
   class BackendMock {
@@ -32,10 +39,14 @@ function App() {
 
     signFindSatoshiMessage(payload) {
       const message = this.constructFindSatoshi(payload);
+      console.log("4 message", message);
 
       const signature = joinSignature(
         this.maintainer._signingKey().signDigest(message)
       );
+      console.log("5 signature", signature);
+
+      console.log("6 Buffer", Buffer.from(signature.slice(2), "hex"));
       return Buffer.from(signature.slice(2), "hex");
     }
 
@@ -47,6 +58,7 @@ function App() {
       newCardsCids,
       newCardsDnas,
     }) {
+      //}: FindSatoshi): string {
       const data = {
         domain: {
           chainId: this.chainId,
@@ -80,14 +92,17 @@ function App() {
           newCardsDnas: newCardsDnas,
         },
       };
+      console.log("1 data", data);
       const digest = TypedDataUtils.encodeDigest(data);
+      console.log("2 digest", digest);
       const digestHex = ethers.utils.hexlify(digest);
+      console.log("3 digestHex", digestHex);
       return digestHex;
     }
   }
 
   async function mintHandler() {
-    let backend = new BackendMock(56, contractAddr, maintainer);
+    let backend = new BackendMock(59141, contractAddr, maintainer);
 
     let findSatoshi = {
       freakCardId: 87,
@@ -99,22 +114,23 @@ function App() {
     };
 
     let signature = backend.signFindSatoshiMessage(findSatoshi);
-    console.log(signature);
-    let hexString = Array.from(signature)
-      .map((byte) => {
-        return ("0" + (byte & 0xff).toString(16)).slice(-2);
-      })
-      .join("");
-
-    console.log(hexString);
+    console.log("7 signature", signature);
 
     try {
+      await contract.findSatoshi(signature, findSatoshi, {
+        gasLimit: 500000,
+      });
     } catch (error) {
       console.error("Произошла ошибка:", error.message);
     }
   }
 
-  return <button onClick={mintHandler}>mint</button>;
+  return (
+    <>
+      <ConnectButton />
+      <button onClick={mintHandler}>mint</button>
+    </>
+  );
 }
 
 export default App;
