@@ -42,11 +42,11 @@ const ConnectButton = () => {
           method: 'eth_chainId',
         });
 
-        if (currentChainId !== '0x28c61') {
+        if (currentChainId !== '0xE705') {
           try {
             await window.ethereum.request({
               method: 'wallet_switchEthereumChain',
-              params: [{ chainId: '0x28c61' }],
+              params: [{ chainId: '0xE705' }],
             });
           } catch (switchError) {
             if (switchError.code === 4902) {
@@ -55,16 +55,16 @@ const ConnectButton = () => {
                   method: 'wallet_addEthereumChain',
                   params: [
                     {
-                      chainId: '0x28c61',
-                      chainName: 'Taiko Hekla L2',
-                      rpcUrls: ['https://rpc.hekla.taiko.xyz'],
-                      nativeCurrency: {
-                        name: 'ETH',
-                        symbol: 'ETH',
-                        decimals: 18,
+                        chainId: '0xE705',
+                        chainName: 'Linea Sepolia test network',
+                        rpcUrls: ['https://linea-sepolia.infura.io/v3/'],
+                        nativeCurrency: {
+                          name: 'ETH',
+                          symbol: 'ETH',
+                          decimals: 18,
+                        },
+                        blockExplorerUrls: ['https://sepolia.lineascan.build'],
                       },
-                      blockExplorerUrls: ['https://hekla.taikoscan.network'],
-                    },
                   ],
                 });
               } catch (addError) {

@@ -105,12 +105,12 @@ function App() {
     let backend = new BackendMock(59141, contractAddr, maintainer);
 
     let findSatoshi = {
-      freakCardId: 87,
-      geekCardId: 1097,
-      slackerCardId: 1489,
-      hackerCardId: 996,
-      newCardsCids: ["QmWtkoLmGK1mBYCEFSFAbEjXXqkh2ZFExjF3CxhzJpUz58"],
-      newCardsDnas: [3003],
+      freakCardId: 1102,
+      geekCardId: 839,
+      slackerCardId: 588,
+      hackerCardId: 1471,
+      newCardsCids: ["QmQR6BV9qCop9aztjf8EX1WDzx26NWQfiZnA6mgAquZd5Q"],
+      newCardsDnas: [3004],
     };
 
     let signature = backend.signFindSatoshiMessage(findSatoshi);
