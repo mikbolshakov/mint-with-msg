@@ -4,14 +4,12 @@ import { ethers } from "ethers";
 import { joinSignature } from "ethers/lib/utils";
 import { TypedDataUtils } from "ethers-eip712";
 import { Buffer } from "buffer";
-import contract20abi from "./ABI/abiRunner2060coin.json";
 import contract1155abi from "./ABI/abiRunner2060rewards.json";
 
 function App() {
   const [metaMaskConnected, setMetaMaskConnected] = React.useState(false);
   const [walletAddress, setWalletAddress] = React.useState("");
 
-  const contractAddr20 = process.env.REACT_APP_CONTRACT_ADDRESS_20;
   const contractAddr1155 = process.env.REACT_APP_CONTRACT_ADDRESS_1155;
   const provider = new ethers.providers.Web3Provider(window.ethereum);
   const signer = provider.getSigner();
@@ -20,7 +18,6 @@ function App() {
     provider
   );
 
-  const contract20 = new ethers.Contract(contractAddr20, contract20abi, signer);
   const contract1155 = new ethers.Contract(
     contractAddr1155,
     contract1155abi,
@@ -116,72 +113,6 @@ function App() {
     }
   };
 
-  class BackendMock {
-    /// The EIP-712 domain name used for computing the domain separator.
-    DOMAIN_NAME = "Runner2060coin";
-    /// The EIP-712 domain version used for computing the domain separator.
-    DOMAIN_VERSION = "V1";
-
-    maintainer;
-    chainId;
-    contractAddress;
-
-    constructor(chainId, contractAddress, maintainer) {
-      this.chainId = chainId;
-      this.contractAddress = contractAddress;
-      this.maintainer = maintainer;
-    }
-
-    signMintMessage(payload) {
-      const message = this.constructMint(payload);
-      console.log("4 message", message);
-
-      const signature = joinSignature(
-        this.maintainer._signingKey().signDigest(message)
-      );
-      console.log("5 signature", signature);
-
-      console.log("6 Buffer", Buffer.from(signature.slice(2), "hex"));
-      return Buffer.from(signature.slice(2), "hex");
-    }
-
-    constructMint({ userAddress, amount, salt }) {
-      const data = {
-        domain: {
-          chainId: this.chainId,
-          verifyingContract: this.contractAddress,
-          name: this.DOMAIN_NAME,
-          version: this.DOMAIN_VERSION,
-        },
-        types: {
-          EIP712Domain: [
-            { name: "name", type: "string" },
-            { name: "version", type: "string" },
-            { name: "chainId", type: "uint256" },
-            { name: "verifyingContract", type: "address" },
-          ],
-          MintingParams: [
-            { name: "userAddress", type: "address" },
-            { name: "amount", type: "uint256" },
-            { name: "salt", type: "bytes32" },
-          ],
-        },
-        primaryType: "MintingParams",
-        message: {
-          userAddress: userAddress,
-          amount: amount,
-          salt: salt,
-        },
-      };
-      console.log("1 data", data);
-      const digest = TypedDataUtils.encodeDigest(data);
-      console.log("2 digest", digest);
-      const digestHex = ethers.utils.hexlify(digest);
-      console.log("3 digestHex", digestHex);
-      return digestHex;
-    }
-  }
-
   class BackendMock1155 {
     DOMAIN_NAME = "Runner2060rewards";
     DOMAIN_VERSION = "V1";
@@ -239,39 +170,6 @@ function App() {
     }
   }
 
-  async function mintHandler() {
-    const accounts = await window.ethereum
-      .request({ method: "eth_requestAccounts" })
-      .then((res) => {
-        console.log(res);
-        return res;
-      });
-
-    if (accounts.length > 0) {
-      setWalletAddress(accounts[0]);
-    }
-
-    let backend = new BackendMock(59144, contractAddr20, maintainer);
-
-    let mintOne = {
-      userAddress: walletAddress,
-      amount: 5000000000000000,
-      salt: generateSalt(),
-    };
-    console.log("userAddress", signer.address);
-
-    let signature = backend.signMintMessage(mintOne);
-    console.log("7 signature", signature);
-
-    try {
-      await contract20.mint(signature, mintOne, {
-        gasLimit: 500000,
-      });
-    } catch (error) {
-      console.error("Minting error:", error.message);
-    }
-  }
-
   async function mint1155Handler() {
     const accounts = await window.ethereum
       .request({ method: "eth_requestAccounts" })
@@ -308,21 +206,18 @@ function App() {
   return (
     <>
       {metaMaskConnected ? (
-        <button className="connect-button" onClick={disconnectWalletHandler}>
-          {shortAddress(walletAddress)}
-        </button>
+        <>
+          <button className="connect-button" onClick={disconnectWalletHandler}>
+            {shortAddress(walletAddress)}
+          </button>
+
+          <button className="mint-button" onClick={mint1155Handler}>Mint 1155</button>
+        </>
       ) : (
         <button className="connect-button" onClick={connectMetamaskHandler}>
           Connect MetaMask
         </button>
       )}
-      <button className="mint-button" onClick={mintHandler}>
-        Mint 20
-      </button>
-
-      <button onClick={mint1155Handler}>
-        Mint 1155
-      </button>
     </>
   );
 }
